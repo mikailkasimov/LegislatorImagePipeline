@@ -83,8 +83,8 @@ def get_image_links_from_google_search(query):
 """"
 Downloads an image link to current directory or specified directory
 
-param: image_links: list of str
-param: output_dir: str
+param: image_links: list of image_urls
+param: output_dir: output where images are saved
 return: None
 """
 def download_image_from_links(image_links, output_dir=""):

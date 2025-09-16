@@ -60,8 +60,8 @@ class FeatureExtractionPipeline:
         # Squeeze the output to remove the batch dimension and convert to a NumPy array.
         features = features.squeeze().cpu().numpy()
         return features
-
-    def batch_extract_features(self, preprocessed_images):
+        
+    def batch_extract_features(self, preprocessed_images, batch_size=32):
         """
         Extracts FaceNet embeddings for a batch of preprocessed images.
         
@@ -71,14 +71,17 @@ class FeatureExtractionPipeline:
         if isinstance(preprocessed_images, np.ndarray):
             preprocessed_images = [preprocessed_images]
 
-        tensors = []
-        for img in preprocessed_images:
-            tensor = self.transform(img)  # shape: (3, 160, 160)
-            tensors.append(tensor)
+        embeddings = []
 
-        batch = torch.stack(tensors).to(self.device)  # shape: (N, 3, 160, 160)
+        for i in range(0, len(preprocessed_images), batch_size):
+            batch_imgs = preprocessed_images[i:i+batch_size]
+            tensors = [self.transform(img) for img in batch_imgs]
+            batch = torch.stack(tensors).to(self.device)
 
-        with torch.no_grad():
-            embeddings = self.model(batch)  # shape: (N, 512)
+            with torch.no_grad():
+                batch_embeddings = self.model(batch)
 
-        return embeddings.cpu().numpy()  # shape: (N, 512)
+            embeddings.append(batch_embeddings.cpu())
+
+        return torch.cat(embeddings).numpy()
+
