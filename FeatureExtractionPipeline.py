@@ -26,62 +26,51 @@ class FeatureExtractionPipeline:
         """
         self.device = device
         self.model = InceptionResnetV1(pretrained='vggface2').eval().to(self.device)
-        
-        # Def a transform that first converts float32 images (range [0,1]) to uint8,
-        # then converts to PIL, resizes to 160x160, converts to tensor, and normalizes to [-1,1].
-        self.transform = transforms.Compose([
-            transforms.Lambda(lambda x: (x * 255).astype(np.uint8) if x.dtype == np.float32 else x),
-            transforms.ToPILImage(),
-            transforms.Resize((160, 160)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5, 0.5, 0.5],
-                                 std=[0.5, 0.5, 0.5])
-        ])
-    
-    def extract_features(self, preprocessed_image):
+
+
+    def extract_features(self, preprocessed_faces):
         """
-        Extracts features from a preprocessed image using FaceNet.
+        Extracts FaceNet embeddings for preprocessed faces (all faces in one image).
         
-        Parameters:
-            preprocessed_image (numpy.ndarray): Preprocessed image (e.g., shape (224,224,3), values in [0,1])
-        
-        Returns:
-            numpy.ndarray: A flattened feature vector (typically 512-dimensional).
-        """
-        # Apply the transformation to get a tensor of shape (3, 160, 160)
-        img_tensor = self.transform(preprocessed_image)
-        # Add a batch dimension so the tensor becomes (1, 3, 160, 160)
-        img_tensor = img_tensor.unsqueeze(0).to(self.device)
-        
-        # Forward pass through the FaceNet model to obtain the embedding.
-        with torch.no_grad():
-            features = self.model(img_tensor)
-        
-        # Squeeze the output to remove the batch dimension and convert to a NumPy array.
-        features = features.squeeze().cpu().numpy()
-        return features
-        
-    def batch_extract_features(self, preprocessed_images, batch_size=32):
-        """
-        Extracts FaceNet embeddings for a batch of preprocessed images.
-        
-        param: preprocessed_images: List of images (or a single image) with shape (H, W, 3), pixel values in [0, 1]
+        param: preprocessed_faces: List of images with shape (N, H, W, 3), pixel values in [0, 1]
         return: np.ndarray of shape (N, D)
         """
-        if isinstance(preprocessed_images, np.ndarray):
-            preprocessed_images = [preprocessed_images]
+        # Ensure input is always a list and a tensor
+        if isinstance(preprocessed_faces, np.ndarray):
+            preprocessed_faces = [preprocessed_faces]
+        preprocessed_faces = [torch.tensor(face, dtype=torch.float32) for face in preprocessed_faces]
 
-        embeddings = []
+        if not preprocessed_faces:
+            return []
 
-        for i in range(0, len(preprocessed_images), batch_size):
-            batch_imgs = preprocessed_images[i:i+batch_size]
-            tensors = [self.transform(img) for img in batch_imgs]
-            batch = torch.stack(tensors).to(self.device)
+        images_tensor = torch.stack(preprocessed_faces).to(self.device)  #(N, H, W, 3)
+        images_tensor = images_tensor.permute(0,3,1,2).to(self.device)  # (N, 3, H, W)
+        images_tensor = (images_tensor - 0.5) / 0.5  # normalize to [-1,1]
 
-            with torch.no_grad():
-                batch_embeddings = self.model(batch)
+        with torch.no_grad():
+            embeddings = self.model(images_tensor) #(N, 512)
+        return embeddings.cpu().numpy()
 
-            embeddings.append(batch_embeddings.cpu())
+    def batch_extract_features(self, preprocessed_faces_per_image):
+        """
+        Extracts FaceNet embeddings for a batch of preprocessed faces (all faces in all image).
+        
+        param: preprocessed_faces: List of lists of images with shape (N, H, W, 3), pixel values in [0, 1]
+        return: List of np.ndarrays of shape (N, D)
+        """
+        flat_faces = []
+        frame_lengths = []
+        for i, preprocessed_faces in enumerate(preprocessed_faces_per_image):
+            for face in preprocessed_faces:
+                flat_faces.append(face)
+                frame_lengths.append(len(preprocessed_faces))
 
-        return torch.cat(embeddings).numpy()
-
+        if not flat_faces:
+            return []
+        embeddings = self.extract_features(flat_faces)
+        embeddings_per_image = []
+        start = 0
+        for length in frame_lengths:
+            embeddings_per_image.append(embeddings[start:start+length])
+            start += length
+        return embeddings_per_image
