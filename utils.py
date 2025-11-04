@@ -5,7 +5,7 @@ import os
 import json
 import requests
 from PreprocessingPipeline import PreprocessingPipeline
-from FeatureExtractorPipeline import FeatureExtractionPipeline
+from FeatureExtractionPipeline import FeatureExtractionPipeline
 from sklearn.metrics.pairwise import cosine_similarity
 from dotenv import load_dotenv
 
@@ -32,7 +32,6 @@ def convert_cosine_similarity_to_percentage(cosine_sim):
     Converts cosine similarity (which ranges from -1 to 1) into a percentage.
     For normalized face embeddings, values are typically between 0 and 1.
     """
-    # Clamp to [0,1] and scale to percentage
     cosine_sim = np.clip(cosine_sim, 0, 1)
     return cosine_sim * 100
 
@@ -56,11 +55,12 @@ def get_links_from_json(json_file):
 Get image links from Google Search, limited to 100 links
 
 param:  query: str
+param (Optional): numPages: int
 return: list of image links
 """
-def get_image_links_from_google_search(query):
+def get_image_links_from_google_search(query, numPages=1):
     all_links = []
-    for start in range(1, 101, 10):
+    for start in range(1, numPages*10+1, 10):
         url = "https://www.googleapis.com/customsearch/v1"
         params = {
             "key": GOOGLE_CUSTOM_SEARCH_ENGINE_API_KEY,
@@ -137,9 +137,10 @@ If output_dir is not specified, saves to "output/"
 
 param: Text query for google image search: str
 param (Optional): output_dir: str
+param (Optional): numPages: int
 """
-def search_and_download(query, output_dir="output"):
-    links = get_image_links_from_google_search(query)
+def search_and_download(query, output_dir="output", numPages=1):
+    links = get_image_links_from_google_search(query, numPages=numPages)
     download_image_from_links(links, output_dir=output_dir)
 
 
@@ -188,7 +189,7 @@ def get_embeddings_from_directory(image_directory, max_faces=None, target_size=(
 """
 Using the Congress API key, we get a full list of the senate
 """
-def get_current_senate():
+def get_current_congress():
     all_members = []
     for i in range(0,750, 250):
         url = "https://api.congress.gov/v3/member?"
@@ -218,5 +219,7 @@ def cosine_sim_to_centroid(vectors):
     centroid = np.mean(np.array(vectors), axis=0).reshape(1, -1)  # make it 2D
     sims = cosine_similarity(vectors, centroid).ravel()
     return sims
+
+
 
 

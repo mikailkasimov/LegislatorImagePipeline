@@ -1,4 +1,4 @@
-#Credit to https://www.kaggle.com/code/alaasweed/similarity-percentage-using-facenet
+ #Credit to https://www.kaggle.com/code/alaasweed/similarity-percentage-using-facenet
 
 import matplotlib.pyplot as plt
 from matplotlib.image import imread
@@ -7,7 +7,6 @@ import numpy as np
 import os
 import cv2
 import torch
-from facenet_pytorch import InceptionResnetV1
 from facenet_pytorch import MTCNN
 from torchvision import transforms
 import PIL._util
@@ -26,7 +25,7 @@ class PreprocessingPipeline:
         """
         self.device = device
         self.target_size = target_size
-        self.detector = MTCNN()
+        self.detector = MTCNN(device=self.device)
 
     def load_image(self, image_input):
         """
@@ -102,7 +101,7 @@ class PreprocessingPipeline:
                 batch_result.append((faces,boxes,probs))
             else:
                 batch_result.append(([],[],[]))
-        return batch_result
+        return batch_result     #list of (faces, boxes, probs)
 
     def resize_image(self, image):
         """
@@ -147,8 +146,10 @@ class PreprocessingPipeline:
         images = [self.load_image(image_input) for image_input in image_inputs]
         tuples_per_image = self.batch_detect_and_crop(images)
         normalized_faces_per_image = []
+        boxes_per_image = []
         for (faces, boxes, probs) in tuples_per_image:
             resized_images = [self.resize_image(face) for face in faces]
             normalized_faces = [self.normalize_image(face) for face in resized_images]
             normalized_faces_per_image.append(normalized_faces)
-        return normalized_faces_per_image
+            boxes_per_image.append(boxes if boxes is not None else [])
+        return normalized_faces_per_image, boxes_per_image

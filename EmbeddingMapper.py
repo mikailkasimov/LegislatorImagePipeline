@@ -1,15 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.manifold import TSNE
-from umap import UMAP
+from cuml.manifold import TSNE  # Import from cuml instead of sklearn
+from cuml.manifold import UMAP  # Import from cuml instead of umap
 
 class EmbeddingMapper:
-    def __init__(self, 
-                 dimension=512, 
-                 components=3,
-                 tsne = None,
-                 umap = None
-                 ):
+    def __init__(self, dimension=512, components=3, tsne = None,umap = None):
         self.dimension=dimension    #Dimension of input embeddings
         self.components=components  #Dimension to reduce embeddings to (2D or 3D)
         if tsne is not None:
@@ -18,7 +13,7 @@ class EmbeddingMapper:
             self.tsne = TSNE(
                 n_components=components,
                 perplexity=30,
-                learning_rate="auto",
+                learning_rate=200,
                 init="pca",
             )
         if umap is not None:
@@ -61,12 +56,11 @@ class EmbeddingMapper:
     """
     def plot_tsne(self, embeddings_list, labels=None):
         print("Running t-SNE transformation...")
-        tsne_embeddings = self.tsne_transform(embeddings_list)
-        
+        tsne_embeddings = self.tsne_transform(np.array(embeddings_list))
         if self.components == 2:
             plt.figure(figsize=(10, 8))
             plt.scatter(tsne_embeddings[:, 0], tsne_embeddings[:, 1], c=labels, cmap='viridis')
-            plt.title('2D t-SNE Visualization')
+            plt.title('2D t-SNE')
             plt.xlabel('Component 1')
             plt.ylabel('Component 2')
             plt.grid(True)
@@ -75,7 +69,7 @@ class EmbeddingMapper:
             fig = plt.figure(figsize=(10, 8))
             ax = fig.add_subplot(111, projection='3d')
             ax.scatter(tsne_embeddings[:, 0], tsne_embeddings[:, 1], tsne_embeddings[:, 2], c=labels, cmap='viridis')
-            ax.set_title('3D t-SNE Visualization')
+            ax.set_title('3D t-SNE')
             ax.set_xlabel('Component 1')
             ax.set_ylabel('Component 2')
             ax.set_zlabel('Component 3')
@@ -93,7 +87,7 @@ class EmbeddingMapper:
     """
     def plot_umap(self, embeddings_list, labels=None):
         print("Running UMAP transformation...")
-        umap_embeddings = self.umap_transform(embeddings_list)
+        umap_embeddings = self.umap_transform(np.array(embeddings_list))
         
         if self.components == 2:
             plt.figure(figsize=(10, 8))
