@@ -1,0 +1,23 @@
+services:
+  postgres:
+      image: postgres:17
+      container_name: postgres
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: password
+        POSTGRES_DB: postgresdb
+      ports:
+        - "5432:5432"
+      volumes:
+        - postgres-data:/var/lib/postgresql/data
+  faktory:
+    image: contribsys/faktory:1.9.3
+    container_name: faktory
+    ports:
+      - "7419:7419"
+      - "7420:7420"
+    volumes:
+      - faktory-data:/var/lib/faktory/data
+volumes:
+  faktory-data:
+  postgres-data:

@@ -108,3 +108,25 @@ class EmbeddingMapper:
             plt.show()
         else:
             raise ValueError("Plotting is only supported for 2 or 3 components.")
+
+    def plot(self, embeddings_list, labels=None):
+        embeddings_list = np.array(embeddings_list)
+        if self.components == 2:
+            plt.figure(figsize=(10, 8))
+            plt.scatter(embeddings_list[:, 0], embeddings_list[:, 1], c=labels, cmap='viridis')
+            plt.title('2D UMAP Visualization')
+            plt.xlabel('Component 1')
+            plt.ylabel('Component 2')
+            plt.grid(True)
+            plt.show()
+        elif self.components == 3:
+            fig = plt.figure(figsize=(10, 8))
+            ax = fig.add_subplot(111, projection='3d')
+            ax.scatter(embeddings_list[:, 0], embeddings_list[:, 1], embeddings_list[:, 2], c=labels, cmap='viridis')
+            ax.set_title('3D UMAP Visualization')
+            ax.set_xlabel('Component 1')
+            ax.set_ylabel('Component 2')
+            ax.set_zlabel('Component 3')
+            plt.show()
+        else:
+            raise ValueError("Plotting is only supported for 2 or 3 components.")
