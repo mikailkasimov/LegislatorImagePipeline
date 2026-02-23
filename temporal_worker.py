@@ -159,7 +159,7 @@ class YoutubeActivities:
 
     @activity.defn
     def get_video_details(self, all_ids: list[str]):
-        details = self.yt_client.get_video_details_exhaustive(all_ids)
+        details = self.yt_client.get_video_details(all_ids)
         return details
 
     @activity.defn
