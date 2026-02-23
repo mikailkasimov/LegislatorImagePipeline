@@ -101,8 +101,8 @@ class YoutubeClient:
         url = f"https://www.youtube.com/watch?v={video_id}"
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            return str(ydl.prepare_filename(info))
-
+            return os.path.abspath(ydl.prepare_filename(info))
+            
     def get_video_details(self, video_ids: Union[str, List[str]]) -> List[Dict[str, Any]]:
         """
         Retrieves metadata (duration, stats, tags) for a list of video IDs
@@ -124,5 +124,4 @@ class YoutubeClient:
                 id=chunk
             ).execute()
             all_items.extend(response.get("items", []))
-            
         return all_items
