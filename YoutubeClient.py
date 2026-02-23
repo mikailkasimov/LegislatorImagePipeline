@@ -5,6 +5,7 @@ import googleapiclient.discovery
 import google.auth.transport.requests
 import pickle
 from yt_dlp import YoutubeDL
+from typing import Any, Dict, List, Optional, Union
 
 class YoutubeClient:
     def __init__(self, client_secret_path, creds_file="token.pickle", scopes=None):
@@ -39,58 +40,83 @@ class YoutubeClient:
             "youtube", "v3", credentials=creds)
         return youtube
 
-    def search(self, **req_kwargs):
-        request = self.youtube.search().list(
-            **req_kwargs
-        )
-        response = request.execute()
-        return response
+    def search(self, **req_kwargs: Any) -> Dict[str, Any]:
+        """
+        Performs a single basic search using the YouTube Data API
+        Ref: https://developers.google.com/youtube/v3/docs/search/list
 
-    def exhaustive_search(self, max_total_results=None, **req_kwargs):
-        results=[]
-        next_page_token=None
+        param: req_kwargs: Standard YouTube API parameters (q, part, type, etc.)
+        return: response: Dict containing 'items' list and pagination metadata
+        """
+        request = self.youtube.search().list(**req_kwargs)
+        return request.execute()
+
+    def exhaustive_search(self, max_total_results: Optional[int] = None, **req_kwargs: Any) -> List[Dict[str, Any]]:
+        """
+        Paginates through search results to bypass the 50-item API limit
+        Ref: https://developers.google.com/youtube/v3/guides/implementation/pagination
+
+        param: max_total_results: Total number of items to return (None for all)
+        param: req_kwargs: Standard search parameters (q, part, etc.)
+        return: results: List of search result resource objects
+        """
+        results: List[Dict[str, Any]] = []
+        next_page_token: Optional[str] = None
+        
         while True:
-            response = self.search(
-                **req_kwargs,
-                pageToken=next_page_token
-            )
+            response = self.search(**req_kwargs, pageToken=next_page_token)
             items = response.get("items", [])
             results.extend(items)
+            
             next_page_token = response.get("nextPageToken")
             if not next_page_token or (max_total_results and len(results) >= max_total_results):
                 break
         return results[:max_total_results]
 
 
+    def download_video(self, video_id: str, output_dir: str = "./", **yt_dlp_args: Any) -> str:
+        """
+        Downloads a YouTube video using yt-dlp with optimized MP4 settings
+        Ref: https://github.com/yt-dlp/yt-dlp
 
-    def download_video(self, video_id, output_dir="./", **yt_dlp_args):
-        output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
+        param: video_id: 11-character YouTube video ID
+        param: output_dir: Local directory where the file should be saved
+        param: yt_dlp_args: Overrides for the YoutubeDL options dictionary
+        return: filepath: Absolute file path of the downloaded video
+        """
+        out_path = Path(output_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+        
         ydl_opts = {
             "format_sort": ["res:720", "ext:mp4:m4a"],
             "postprocessors": [{
                 "key": "FFmpegVideoConvertor",
                 "preferedformat": "mp4",
             }],
-            "outtmpl": str(output_dir / "%(id)s.%(ext)s"),
+            "outtmpl": str(out_path / "%(id)s.%(ext)s"),
             "noplaylist": True,
             "quiet": False,
             **yt_dlp_args
         }
-        url = f"https://www.youtube.com/watch?v={video_id}" if len(video_id) == 11 else video_id
+        url = f"https://www.youtube.com/watch?v={video_id}"
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            return ydl.prepare_filename(info)
+            return str(ydl.prepare_filename(info))
 
+    def get_video_details(self, video_ids: Union[str, List[str]]) -> List[Dict[str, Any]]:
+        """
+        Retrieves metadata (duration, stats, tags) for a list of video IDs
+        Ref: https://developers.google.com/youtube/v3/docs/videos/list
 
-    def get_video_details(self, video_ids):
-        """Gets video details for a List[video_ids] in batches of 50"""
+        param: video_ids: A single video ID string or a list of ID strings
+        return: items: List of video resource objects (contentDetails, statistics)
+        """
         if not video_ids:
             return []
         if isinstance(video_ids, str):
             video_ids = [video_ids]
             
-        all_items = []
+        all_items: List[Dict[str, Any]] = []
         for i in range(0, len(video_ids), 50):
             chunk = ",".join(video_ids[i : i + 50])
             response = self.youtube.videos().list(
