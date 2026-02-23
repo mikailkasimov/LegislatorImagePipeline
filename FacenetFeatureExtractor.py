@@ -12,31 +12,31 @@ class FacenetFeatureExtractor(FeatureExtractor):
         
 
     def extract_features(self, faces):
-            # 1. Handle empty input
-            if faces is None or len(faces) == 0:
-                return np.empty((0, 512), dtype=np.float32)
+        # 1. Handle empty input
+        if faces is None or len(faces) == 0:
+            return np.empty((0, 512), dtype=np.float32)
 
-            # 2. Convert to tensor and ensure 4D (N, H, W, 3)
-            if isinstance(faces, np.ndarray):
-                images_tensor = torch.from_numpy(faces).float()
-            elif isinstance(faces, torch.Tensor):
-                images_tensor = faces.float()
-            else:
-                # Handle list of images by stacking them
-                images_tensor = torch.stack([torch.from_numpy(np.asarray(f)).float() for f in faces])
+        # 2. Convert to tensor and ensure 4D (N, H, W, 3)
+        if isinstance(faces, np.ndarray):
+            images_tensor = torch.from_numpy(faces).float()
+        elif isinstance(faces, torch.Tensor):
+            images_tensor = faces.float()
+        else:
+            # Handle list of images by stacking them
+            images_tensor = torch.stack([torch.from_numpy(np.asarray(f)).float() for f in faces])
 
-            # If a single image (H, W, 3) was passed, make it (1, H, W, 3)
-            if images_tensor.ndimension() == 3:
-                images_tensor = images_tensor.unsqueeze(0)
+        # If a single image (H, W, 3) was passed, make it (1, H, W, 3)
+        if images_tensor.ndimension() == 3:
+            images_tensor = images_tensor.unsqueeze(0)
 
-            # 3. Permute to (N, 3, H, W) - This now always works because input is forced to 4D
-            images_tensor = images_tensor.permute(0, 3, 1, 2).to(self.device)
-            
-            # 4. Normalize and Forward Pass
-            images_tensor = (images_tensor - 0.5) / 0.5
-            with torch.no_grad():
-                embeddings = self.model(images_tensor)
-            return embeddings.cpu().numpy()
+        # 3. Permute to (N, 3, H, W) - This now always works because input is forced to 4D
+        images_tensor = images_tensor.permute(0, 3, 1, 2).to(self.device)
+        
+        # 4. Normalize and Forward Pass
+        images_tensor = (images_tensor - 0.5) / 0.5
+        with torch.no_grad():
+            embeddings = self.model(images_tensor)
+        return embeddings.cpu().numpy()
 
     def batch_extract_features(self, faces_list):
         flat_faces = []

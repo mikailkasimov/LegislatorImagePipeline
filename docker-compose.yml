@@ -1,23 +1,130 @@
+x-gpu-worker: &gpu-worker-base
+  build: .
+  depends_on:
+    temporal: { condition: service_healthy }
+  volumes:
+    - .:/app
+    - /home/kasimov/notebooks/LegislatorImagePipeline/tmp_vids:/app/tmp_vids
+    - /home/kasimov/notebooks/LegislatorImagePipeline/Senate_Embeddings:/app/Senate_Embeddings:ro
+    - /home/kasimov/.cache/huggingface:/root/.cache/huggingface
+    - /home/kasimov/.cache/torch/NeMo:/root/.cache/torch/NeMo
+    - /home/kasimov/.cache/torch/hub:/root/.cache/torch/hub
+  environment:
+    - TEMPORAL_ADDRESS=temporal:7233
+    - PYTHONUNBUFFERED=1
+    - GROUND_TRUTH_BASE=/app/Senate_Embeddings
+  command: python temporal_worker.py -q gpu
+  networks: ["temporal-network"]
+
 services:
   postgres:
-      image: postgres:17
-      container_name: postgres
-      environment:
-        POSTGRES_USER: postgres
-        POSTGRES_PASSWORD: password
-        POSTGRES_DB: postgresdb
-      ports:
-        - "5432:5432"
-      volumes:
-        - postgres-data:/var/lib/postgresql/data
-  faktory:
-    image: contribsys/faktory:1.9.3
-    container_name: faktory
-    ports:
-      - "7419:7419"
-      - "7420:7420"
+    image: postgres:17
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: postgresdb
+    ports: ["5432:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    networks: ["temporal-network"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgresdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  temporal:
+    container_name: temporal
+    image: temporalio/auto-setup:1.29.3
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PWD=password
+      - POSTGRES_SEEDS=postgres
+      - DBNAME=postgresdb
+      - VISIBILITY_DBNAME=postgresdb_visibility
+      - SKIP_DB_CREATE=false
+    ports: ["7233:7233"]
+    networks: ["temporal-network"]
+    healthcheck:
+      test: ["CMD", "tctl", "--address", "temporal:7233", "cluster", "health"]
+      interval: 10s
+      retries: 10
+
+  temporal-ui:
+    container_name: temporal-ui
+    image: temporalio/ui:2.45.1
+    depends_on:
+      temporal: { condition: service_healthy }
+    environment: ["TEMPORAL_ADDRESS=temporal:7233"]
+    ports: ["8080:8080"]
+    networks: ["temporal-network"]
+
+  legislator-worker-io:
+    build: .
+    container_name: legislator-worker-io
+    depends_on:
+      temporal: { condition: service_healthy }
     volumes:
-      - faktory-data:/var/lib/faktory/data
+      - .:/app
+      - /home/kasimov/notebooks/LegislatorImagePipeline/tmp_vids:/app/tmp_vids
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - PYTHONUNBUFFERED=1
+    command: python temporal_worker.py -q io
+    networks: ["temporal-network"]
+
+  legislator-worker-gpu-0:
+    <<: *gpu-worker-base
+    container_name: legislator-worker-gpu-0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
+
+  legislator-worker-gpu-1:
+    <<: *gpu-worker-base
+    container_name: legislator-worker-gpu-1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['1']
+              capabilities: [gpu]
+
+  legislator-worker-gpu-2:
+    <<: *gpu-worker-base
+    container_name: legislator-worker-gpu-2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['2']
+              capabilities: [gpu]
+
+  legislator-worker-gpu-3:
+    <<: *gpu-worker-base
+    container_name: legislator-worker-gpu-3
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['3']
+              capabilities: [gpu]
+
+networks:
+  temporal-network:
+    driver: bridge
+
 volumes:
   faktory-data:
   postgres-data:

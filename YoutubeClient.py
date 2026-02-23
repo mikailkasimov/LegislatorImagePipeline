@@ -67,16 +67,14 @@ class YoutubeClient:
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         ydl_opts = {
-            # 1. Grab best video up to 720p and best audio (no matter the format)
-            "format": "bestvideo[height<=720]+bestaudio/best[height<=720]",
-            # 2. Try to just "wrap" it in an MP4 (fast)
-            "merge_output_format": "mp4",
-            # 3. If it's not an MP4 after step 2, FORCE a conversion (the "reformat")
+            "format_sort": ["res:720", "ext:mp4:m4a"],
             "postprocessors": [{
                 "key": "FFmpegVideoConvertor",
                 "preferedformat": "mp4",
             }],
             "outtmpl": str(output_dir / "%(id)s.%(ext)s"),
+            "noplaylist": True,
+            "quiet": False,
             **yt_dlp_args
         }
         url = f"https://www.youtube.com/watch?v={video_id}" if len(video_id) == 11 else video_id
