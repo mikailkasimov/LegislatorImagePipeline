@@ -84,32 +84,19 @@ class YoutubeClient:
 
 
     def get_video_details(self, video_ids):
-        """Retrieves details (like duration) for a list of video IDs."""
-        if isinstance(video_ids, list):
-            video_ids = ",".join(video_ids)
-            
-        request = self.youtube.videos().list(
-            part="contentDetails,snippet,statistics", 
-            id=video_ids
-        )
-        return request.execute()
-
-
-    def get_video_details_exhaustive(self, video_ids):
-        """Retrieves details for all provided video IDs, handling the 50-ID API limit."""
+        """Gets video details for a List[video_ids] in batches of 50"""
         if not video_ids:
             return []
         if isinstance(video_ids, str):
             video_ids = [video_ids]
+            
         all_items = []
         for i in range(0, len(video_ids), 50):
-            chunk = video_ids[i : i + 50]
-            ids_string = ",".join(chunk)
-            request = self.youtube.videos().list(
+            chunk = ",".join(video_ids[i : i + 50])
+            response = self.youtube.videos().list(
                 part="contentDetails,snippet,statistics",
-                id=ids_string
-            )
-            response = request.execute()
-            items = response.get("items", [])
-            all_items.extend(items)
+                id=chunk
+            ).execute()
+            all_items.extend(response.get("items", []))
+            
         return all_items
